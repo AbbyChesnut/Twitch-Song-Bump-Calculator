@@ -17,30 +17,37 @@ def main(): #main menu from GradeTrackerDB
         choice = input("Please choose an option: ").strip()
 
         if choice == '1':  #adding user option
-            print("---Adding User---")
+            print("\n---Adding User---")
             user_name = input("What user would you like to add?: ").strip()
             add_user(user_name)
             print_users_by_total()
 
         elif choice == '2': #edit user option
-            print("---Editing User---")
+            print("\n---Editing User---")
             user_name = input("What user would you like to edit?: ").strip()
             edit_user(user_name)
             print_users_by_total()
 
         elif choice == '3': #clearing a singular user
-            print("---Deleting a User---")
+            print("\n---Deleting a User---")
             user_name = input("What user would you like to delete?: ").strip()
             delete_user(user_name)
             print_users_by_total()
 
         elif choice == '4': #clearing all users
-            print("---Clearing All Users---")
-            clear_all()
+            print("\n---Clearing All Users---")
+            clear_input = input("Are you sure? (Y or N)").strip().lower()
+            if clear_input == "y":
+                clear_all()
+            elif clear_input == "n":
+                continue
+            else:
+                print("Invalid input")
+                continue
             print_users_by_total()
 
-        elif choice == '5': #exit
-            print("Goodbye!")
+        elif choice == '5': #exit4
+            print("\n---Goodbye!---")
             break
 
         else:
@@ -63,7 +70,7 @@ def update_contributions(user_name, totals):
     bump_status = totals["bumpable"]
 
     while True:
-        cont_choice = input("Resub/gifted/bits/dono? (R,G,B,D, Q to Esc): ").strip().lower()
+        cont_choice = input(f"\n{user_name} - Resub/gifted/bits/dono? (R,G,B,D, Q to Esc): ").strip().lower()
         if cont_choice == "q":
             user_total = round(total_resub + total_gifted + total_bits + total_dono, 2)
             bump_status = (num_bits >= 500) or (resub_tier >= 2) or (gifted_count >= 2) or (total_dono >= 5) or (num_tiertwo_gifted >= 1) or (num_tierthree_gifted >= 1) or (user_total > 5.99)
@@ -90,7 +97,7 @@ def update_contributions(user_name, totals):
         #resub change
         if cont_choice == "r":
             try:
-                resub_tier = int(input("Resub: What tier? "))
+                resub_tier = int(input(f"{user_name} - Resub: What tier? "))
             except ValueError:
                 print("Invalid tier")
                 continue
@@ -111,7 +118,7 @@ def update_contributions(user_name, totals):
         #gifted update
         elif cont_choice == "g":
             try:
-                gifted_amt = int(input("Gifted Subs: How many? "))
+                gifted_amt = int(input(f"{user_name} - Gifted Subs: How many? "))
                 print(gifted_amt, "Gifted Subs:", end=' ')
                 gifted_tier = int(input("What Tier? "))
             except ValueError:
@@ -139,7 +146,7 @@ def update_contributions(user_name, totals):
         #bit update
         elif cont_choice == "b":
             try:
-                bit_amt = int(input("Bits: How many? "))
+                bit_amt = int(input(f"{user_name} - Bits: How many? "))
                 print(f"Added {bit_amt} Bits to {user_name} (${(bit_amt * 0.01):.2f})")
             except ValueError:
                 print("Invalid amount")
@@ -150,7 +157,7 @@ def update_contributions(user_name, totals):
         #dono update
         elif cont_choice == "d":
             try:
-                dono_amt = float(input("Dono: How much? "))
+                dono_amt = float(input(f"{user_name} - Dono: How much? "))
                 print(f"Added ${dono_amt:.2f} to {user_name}")
             except ValueError:
                 print("Invalid amount")
@@ -287,7 +294,7 @@ def print_users_by_total():
 
         #joining the strings
         contribution_string = ", ".join(contributions)            
-        line = (f"{user_name.ljust(15)} | Total: ${total:>6.2f} | {bump.rjust(12)} | {(contribution_string).capitalize()}")
+        line = (f"{user_name[:15].ljust(15)} | Total: ${total:>6.2f} | {bump.rjust(12)} | {(contribution_string).capitalize()}")
 
         print(line)
 main()
