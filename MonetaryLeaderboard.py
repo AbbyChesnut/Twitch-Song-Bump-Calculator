@@ -53,7 +53,7 @@ def main(): #main menu from GradeTrackerDB
         else:
             print("Invalid choice, please try again.")
 
-def update_contributions(user_name, totals):
+def update_contributions(user_name, totals, initial=False): #initial so that I can still subtract in edit mode, but does not allow negative numbers initially
     #function to use in both add and update users
     user_name = totals["name"]
     user_total = totals["monetary_total"]
@@ -97,7 +97,14 @@ def update_contributions(user_name, totals):
         #resub change
         if cont_choice == "r":
             try:
-                resub_tier = int(input(f"{user_name} - Resub: What tier? "))
+                tier_input = float(input(f"{user_name} - Resub: What tier? "))
+                if not tier_input.is_integer():
+                    print("Tier must be a whole number")
+                    continue
+                resub_tier = int(tier_input)
+                if initial and resub_tier < 0:
+                    print("Initial entries cannot be negative")
+                    continue
             except ValueError:
                 print("Invalid tier")
                 continue
@@ -113,17 +120,34 @@ def update_contributions(user_name, totals):
             else:
                 print("Invalid tier")
                 continue
+
             total_resub += amount
 
         #gifted update
         elif cont_choice == "g":
             try:
-                gifted_amt = int(input(f"{user_name} - Gifted Subs: How many? "))
+                gifted_input = float(input(f"{user_name} - Gifted Subs: How many? "))
+                if not gifted_input.is_integer():
+                    print("Gifted subs must be a whole number")
+                    continue
+                gifted_amt = int(gifted_input)
+                if initial and gifted_amt < 0:
+                    print("Initial entries cannot be negative")
+                    continue
+
                 print(gifted_amt, "Gifted Subs:", end=' ')
-                gifted_tier = int(input("What Tier? "))
+                gifted_tier_input = float(input("What Tier? "))
+                if not gifted_tier_input.is_integer():
+                    print("Tier must be a whole number")
+                    continue
+                gifted_tier = int(gifted_tier_input)
+                if initial and gifted_tier <0:
+                    print("Initial entries cannot be negative")
+                    continue
             except ValueError:
                 print("Invalid amount or tier")
                 continue
+
             if gifted_tier == 1:
                 total_gifted += gifted_amt * tier1_price
                 num_tierone_gifted += gifted_amt
@@ -146,11 +170,21 @@ def update_contributions(user_name, totals):
         #bit update
         elif cont_choice == "b":
             try:
-                bit_amt = int(input(f"{user_name} - Bits: How many? "))
-                print(f"Added {bit_amt} Bits to {user_name} (${(bit_amt * 0.01):.2f})")
+                bit_input = float(input(f"{user_name} - Bits: How many? "))
+                if not bit_input.is_integer():
+                    print("Bits must be a whole number")
+                    continue
+                bit_amt = int(bit_input)
+                if initial and bit_amt < 0:
+                    print("Initial entries cannot be negative")
+                    continue
+
+                bit_word = "Bit" if bit_amt == 1 else "Bits"
+                print(f"Added {bit_amt} {bit_word} to {user_name} (${(bit_amt * 0.01):.2f})")
             except ValueError:
                 print("Invalid amount")
                 continue
+
             total_bits += round(bit_amt * 0.01, 2)
             num_bits += bit_amt
 
@@ -158,6 +192,9 @@ def update_contributions(user_name, totals):
         elif cont_choice == "d":
             try:
                 dono_amt = float(input(f"{user_name} - Dono: How much? "))
+                if initial and dono_amt < 0:
+                    print("Initial entries cannot be negative")
+                    continue
                 print(f"Added ${dono_amt:.2f} to {user_name}")
             except ValueError:
                 print("Invalid amount")
@@ -234,8 +271,8 @@ def add_user(user_name):
                 "donos": 0.0,
                 "bumpable": False,
             }
-    
-    update_contributions(user_name, totals)
+
+    update_contributions(user_name, totals, initial=True)
 
 #function to show the users sorted by monetary value, highest to lowest
 def print_users_by_total():
@@ -290,7 +327,11 @@ def print_users_by_total():
 
         #dono check
         if user_data["donos"] > 0:
-            contributions.append(f"${user_data['donos']:.2f} dono")
+            dono_amt = user_data["donos"]
+            if dono_amt.is_integer():
+                contributions.append(f"${int(dono_amt)} dono")
+            else:
+                contributions.append(f"${dono_amt:.2f} dono")
 
         #joining the strings
         contribution_string = ", ".join(contributions)            
