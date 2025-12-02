@@ -7,8 +7,10 @@ Initial Project:
 
 - [x] Change of plans: Make a Menu
 
+- [x] Play with StreamLit to create shareable UI
+
 
 Deliverables:
-- [ ] Create PPT Splash screen and upload to D2L (Due 11/30)
+- [x] Create PPT Splash screen and upload to D2L (Due 11/30)
 - [ ] Record presentation in Teams (Due before the end of Finals)
 - [ ] Upload screenshot to D2L (12/15)
