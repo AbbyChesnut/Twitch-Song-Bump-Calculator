@@ -103,22 +103,19 @@ if users:
     # --- Display each user in a single row using columns ---
     for name, data in sorted_users:
         contribution_string = get_contribution_string(data)
-        
-        # Shorten username for display if necessary to ensure single-line stats
         display_name = name
-        if len(name) > 15: # Adjust 15 based on typical screen size/column width
-            display_name = name[:12] + "..." # Truncate and add ellipsis
 
         # Use two columns: give more space to the stats column to prevent wrapping
         col_stats, col_contrib = st.columns([1.5, 2]) 
 
         with col_stats:
             # The HTML entity &nbsp; is used to ensure the space between the word and emoji doesn't allow a line break.
-            bump_text = 'Bumpable&nbsp;🟢' if data['bumpable'] else 'Not&nbsp;Bumpable&nbsp;🔴'
+            bump_status_text = 'Bumpable&nbsp;🟢' if data['bumpable'] else 'Not&nbsp;Bumpable&nbsp;🔴'
             
+            # Rearranged the output to include dividing pipes.
             st.markdown(
-                f"**{display_name}** | Total: **${data['monetary_total']:.2f}** | **{bump_text}**",
-                unsafe_allow_html=True # Required because we are using the HTML entity &nbsp;
+                f"**{display_name}** | Total: **${data['monetary_total']:.2f}** | {bump_status_text}",
+                unsafe_allow_html=True
             )
 
         with col_contrib:
