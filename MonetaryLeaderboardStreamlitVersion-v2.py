@@ -113,9 +113,12 @@ if users:
         col_stats, col_contrib = st.columns([1.5, 2]) 
 
         with col_stats:
-            # Stats are left-aligned by default
+            # The HTML entity &nbsp; is used to ensure the space between the word and emoji doesn't allow a line break.
+            bump_text = 'Bumpable&nbsp;🟢' if data['bumpable'] else 'Not&nbsp;Bumpable&nbsp;🔴'
+            
             st.markdown(
-                f"**{display_name}** | Total: **${data['monetary_total']:.2f}** | **{'Bumpable 🟢' if data['bumpable'] else 'Not Bumpable 🔴'}**"
+                f"**{display_name}** | Total: **${data['monetary_total']:.2f}** | **{bump_text}**",
+                unsafe_allow_html=True # Required because we are using the HTML entity &nbsp;
             )
 
         with col_contrib:
