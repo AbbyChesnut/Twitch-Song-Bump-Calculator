@@ -75,12 +75,31 @@ tier1_price = 5.99
 tier2_price = 9.99
 tier3_price = 24.99
 
+# --- GRAND TOTALS INITIALIZATION ---
+grand_totals = {
+    "total_monetary": 0.0,
+    "total_resubs_value": 0.0,
+    "total_gifted_subs_value": 0.0,
+    "total_donos": 0.0,
+    "total_bits_value": 0.0,
+    "total_bits_amount": 0,
+    "total_subs_count": 0,
+    # --- NEW KEYS FOR RAW COUNTS ---
+    "total_gifted_subs_count": 0, # Total gifted subs (Tier 1, 2, 3)
+    "total_resubs_count": 0,      # Total Tier 1, 2, or 3 resubs (not value, just the count of active subs)
+    "total_tier1": 0,
+    "total_tier2": 0,
+    "total_tier3": 0,
+}
+
 # --- Streamlit UI ---
 st.title("🎵 Twitch Song Bump Calculator")
 
-# --- Leaderboard (MODIFIED FOR SINGLE-LINE & RIGHT-ALIGNED CONTRIBUTION) ---
 st.subheader("Leaderboard")
 if users:
+    # --- RESET GRAND TOTALS (IMPORTANT) ---
+    grand_totals = {key: 0.0 if isinstance(grand_totals[key], float) else 0 for key in grand_totals}
+
     # --- Recalculate totals and bump status before sorting ---
     for name, data in users.items():
         total = round(
@@ -95,15 +114,44 @@ if users:
             or data["tier3"] >= 1
             or total > 5.99
         )
+        
+        # Calculate the simplified sub count for Grand Total tracking
+        # We treat any active resub (Tier 1, 2, or 3) as 1 sub equivalent, plus all gifted subs.
+        sub_count = (1 if data['resub_tier'] > 0 else 0) + data['gifted_subs_count']
+
         data["monetary_total"] = total
         data["bumpable"] = bump_status
+
+        # --- UPDATE GRAND TOTALS ---
+        grand_totals["total_monetary"] += total
+        grand_totals["total_resubs_value"] += data["resub_total"] # Keep value tracking
+        grand_totals["total_gifted_subs_value"] += data["gifted_subs_total"] # Keep value tracking
+        grand_totals["total_donos"] += data["donos"]
+        grand_totals["total_bits_value"] += data["bits_total"]
+        grand_totals["total_bits_amount"] += data["num_bits"]
+        grand_totals["total_subs_count"] += sub_count
+        
+        # --- NEW: ACCUMULATE RAW COUNTS ---
+        grand_totals["total_gifted_subs_count"] += data["gifted_subs_count"]
+        # Only count the highest active tier for resubs (1 if T1/T2/T3 is active)
+        if data["resub_tier"] > 0:
+            grand_totals["total_resubs_count"] += 1 
+        grand_totals["total_tier1"] += data["tier1"]
+        grand_totals["total_tier2"] += data["tier2"]
+        grand_totals["total_tier3"] += data["tier3"]
         
     sorted_users = sorted(users.items(), key=lambda item: item[1]['monetary_total'], reverse=True)
     
-    # --- Display each user in a single row using columns ---
+    # --- Display each user in a single row using flexbox (remaining display loop follows...)
+    
+    # --- Display each user in a single row using flexbox ---
     for name, data in sorted_users:
         contribution_string = get_contribution_string(data)
+        
+        # Shorten username for display if necessary
         display_name = name
+        if len(name) > 15:
+            display_name = name[:12] + "..."
 
         # Use two columns: give more space to the stats column to prevent wrapping
         col_stats, col_contrib = st.columns([1.5, 2]) 
@@ -124,10 +172,90 @@ if users:
                 f'<div style="text-align: right;"><i>{contribution_string}</i></div>', 
                 unsafe_allow_html=True
             )
-
+            
         st.divider() # Visually separate each user
+
+    # --- Display Grand Totals ---
+    st.markdown("---")
+    st.subheader("📊 Grand Totals")
+    
+    # 1. Calculate Grand Total Status
+    total_subs_count = int(grand_totals['total_subs_count'])
+    stream_sub_goal = 20 # Define the goal here for clarity
+    is_goal_reached = total_subs_count >= stream_sub_goal
+    
+    if is_goal_reached:
+        total_subs_status = 'Stream Sub Goal Reached! 🎉'
+        status_color = '#FFD700' # Gold for Success
+        subs_needed_line = "Goal status: ACHIEVED!"
+    else:
+        subs_needed = stream_sub_goal - total_subs_count
+        total_subs_status = f'Stream Sub Goal In Progress...'
+        status_color = '#FFFFFF' # Default color
+        subs_needed_line = f'Goal: {stream_sub_goal} subs. Need <b>{subs_needed}</b> more to hit the goal!'
+
+    # 2. Compile the Grand Contribution String (RAW AMOUNTS with singular/plural)
+    grand_contribution_parts = []
+    
+    # Gifted Subs
+    if grand_totals['total_gifted_subs_count'] > 0:
+        count = grand_totals['total_gifted_subs_count']
+        word = "gifted sub" if count == 1 else "gifted subs"
+        grand_contribution_parts.append(f"{count} {word}")
+        
+    # Resubs
+    if grand_totals['total_resubs_count'] > 0:
+        count = grand_totals['total_resubs_count']
+        word = "resub" if count == 1 else "resubs"
+        grand_contribution_parts.append(f"{count} {word}")
+        
+    # Bits
+    if grand_totals['total_bits_amount'] > 0:
+        count = grand_totals['total_bits_amount']
+        word = "bit" if count == 1 else "bits"
+        grand_contribution_parts.append(f"{count:,} {word}") 
+        
+    # Donations (Changed wording to "in donos")
+    if grand_totals['total_donos'] > 0:
+        grand_contribution_parts.append(f"${grand_totals['total_donos']:.2f} in donos") 
+
+    grand_contribution_string = ", ".join(grand_contribution_parts).capitalize()
+    if not grand_contribution_string:
+        grand_contribution_string = "No contributions recorded."
+
+    # 3. Display in a single line (using flexbox for left/right alignment)
+    total_monetary = f"${grand_totals['total_monetary']:.2f}"
+    
+    st.markdown(f"""
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span>
+            <b>GRAND TOTAL</b> | Revenue: <b>{total_monetary}</b> | Subs: <b>{total_subs_count}</b> | <span style="color: {status_color};"><b>{total_subs_status}</b></span>
+        </span>
+        <span style="flex-shrink: 0; margin-left: 10px;">
+            <i style="color: gray;">{grand_contribution_string}</i>
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 4. Display the Goal Status Line Separately
+    st.markdown(f'<p style="text-align: left; margin-top: -10px; margin-bottom: 5px;">{subs_needed_line}</p>', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Display detailed revenue breakdown in an expander
+    with st.expander("Detailed Revenue Breakdown"):
+        st.markdown(f"""
+        * Total Resubs (Value): ${grand_totals['total_resubs_value']:.2f}
+        * Total Gifted Subs (Value): ${grand_totals['total_gifted_subs_value']:.2f}
+        * Total Donations: ${grand_totals['total_donos']:.2f}
+        * Total Bits (Amount): {grand_totals['total_bits_amount']:,}
+        ---
+        * Tier 1 Subs Gifted: {grand_totals['total_tier1']}
+        * Tier 2 Subs Gifted: {grand_totals['total_tier2']}
+        * Tier 3 Subs Gifted: {grand_totals['total_tier3']}
+        """)
 else:
-    st.info("No users yet.")
+    st.info("No contributions yet. Beeg sadge :(")
 
 # --- Add User ---
 st.subheader("Add User")
@@ -135,31 +263,53 @@ st.subheader("Add User")
 if "current_new_user" not in st.session_state:
     st.session_state.current_new_user = None
 
-new_user = st.text_input("Enter a new username", key="add_user_input")
+# --- Initialize edit state ---
+if "editing_user" not in st.session_state:
+    st.session_state.editing_user = None
 
-if new_user and new_user not in users and st.session_state.current_new_user is None:
-    users[new_user] = {
-        "monetary_total": 0.0,
-        "resub_tier": 0,
-        "resub_total": 0.0,
-        "tier1": 0,
-        "tier2": 0,
-        "tier3": 0,
-        "gifted_subs_count": 0,
-        "gifted_subs_total": 0.0,
-        "num_bits": 0,
-        "bits_total": 0.0,
-        "donos": 0.0,
-        "bumpable": False,
-    }
-    save_users(users)
-    st.session_state.current_new_user = new_user
-    st.success(f"{new_user} added! Now enter their contributions below:")
-    st.rerun() # Rerun to show the form immediately
+# --- NEW EXCLUSION BLOCK ---
+if st.session_state.editing_user is None and st.session_state.current_new_user is None:
 
-elif new_user in users and st.session_state.current_new_user is None and st.session_state.editing_user is None:
-    st.warning(f"{new_user} already exists.")
+    # 1. Initialize the input value (must be done before the input is called)
+    if "add_user_input_value" not in st.session_state:
+        st.session_state["add_user_input_value"] = ""
 
+    new_user = st.text_input(
+        "Enter a new username", 
+        key="add_user_input", 
+        value=st.session_state["add_user_input_value"]
+    )
+
+    # --- Logic for creating the new user ---
+    if new_user and new_user not in users:
+        users[new_user] = {
+            # ... (Your user initialization dictionary content) ...
+            "monetary_total": 0.0,
+            "resub_tier": 0,
+            "resub_total": 0.0,
+            "tier1": 0,
+            "tier2": 0,
+            "tier3": 0,
+            "gifted_subs_count": 0,
+            "gifted_subs_total": 0.0,
+            "num_bits": 0,
+            "bits_total": 0.0,
+            "donos": 0.0,
+            "bumpable": False,
+        }
+        save_users(users)
+        st.session_state.current_new_user = new_user
+        st.success(f"{new_user} added! Now enter their contributions below:")
+        st.rerun() 
+
+    # --- Warning Logic (simplified since we've excluded editing_user) ---
+    # We also check the 'just_submitted_add' flag to skip the warning immediately after submission
+    is_just_submitted = st.session_state.pop("just_submitted_add", False)
+    
+    if new_user in users and not is_just_submitted:
+        st.warning(f"{new_user} already exists.")
+
+# --- Contribution Form Logic (if current_new_user is set) ---
 if st.session_state.current_new_user:
     user = st.session_state.current_new_user
     st.info(f"Adding initial contribution for **{user}**")
@@ -256,24 +406,24 @@ if st.session_state.current_new_user:
             # --- Common Post-Submission Logic for successful ADD ---
             save_users(users)
             st.session_state.current_new_user = None
-            st.session_state.pop("add_user_input", None)
+            st.session_state["add_user_input_value"] = ""
+            
+            # NEW LINE: Temporarily set flag to suppress "already exists" warning
+            st.session_state["just_submitted_add"] = True 
+            
             st.rerun()
 
-        # --- NEW: Logic for CANCEL button ---
+    # --- NEW: Logic for CANCEL button ---
         if canceled:
             del users[user]
             save_users(users)
             st.warning(f"Adding user **{user}** canceled. User has been deleted.")
             st.session_state.current_new_user = None
-            st.session_state.pop("add_user_input", None)
+            st.session_state["add_user_input_value"] = "" # Reset the input value
             st.rerun()
 
 # --- Manage Existing Users (MODIFIED) ---
 st.subheader("Manage Existing Users")
-
-# --- Initialize edit state ---
-if "editing_user" not in st.session_state:
-    st.session_state.editing_user = None
 
 # Variable to hold selected user from the selectbox
 selected_user = None
@@ -445,8 +595,6 @@ if st.session_state.editing_user and st.session_state.editing_user in users:
             st.session_state.pop("manage_user_select", None)
             st.session_state.pop("edit_contrib_choice", None)
             st.rerun()
-else:
-    st.info("No users available to edit or delete.")
 
 # --- Clear All Users ---
 st.subheader("Clear All Users")
