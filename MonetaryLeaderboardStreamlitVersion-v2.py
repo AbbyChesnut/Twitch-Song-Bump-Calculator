@@ -95,12 +95,12 @@ grand_totals = {
 # --- Streamlit UI ---
 st.title("🎵 Twitch Song Bump Calculator")
 
-st.subheader("Leaderboard")
 if users:
     # --- RESET GRAND TOTALS (IMPORTANT) ---
+    # This must be done inside the 'if users' block before recalculating
     grand_totals = {key: 0.0 if isinstance(grand_totals[key], float) else 0 for key in grand_totals}
 
-    # --- Recalculate totals and bump status before sorting ---
+    # --- Recalculate totals and bump status before sorting (LEADERBOARD LOGIC) ---
     for name, data in users.items():
         total = round(
             data["resub_total"] + data["gifted_subs_total"] + data["bits_total"] + data["donos"], 2
@@ -116,7 +116,6 @@ if users:
         )
         
         # Calculate the simplified sub count for Grand Total tracking
-        # We treat any active resub (Tier 1, 2, or 3) as 1 sub equivalent, plus all gifted subs.
         sub_count = (1 if data['resub_tier'] > 0 else 0) + data['gifted_subs_count']
 
         data["monetary_total"] = total
@@ -142,7 +141,8 @@ if users:
         
     sorted_users = sorted(users.items(), key=lambda item: item[1]['monetary_total'], reverse=True)
     
-    # --- Display each user in a single row using flexbox (remaining display loop follows...)
+    # --- Leaderboard ---
+    st.subheader("Leaderboard")
     
     # --- Display each user in a single row using flexbox ---
     for name, data in sorted_users:
@@ -175,89 +175,13 @@ if users:
             
         st.divider() # Visually separate each user
 
-    # --- Display Grand Totals ---
-    st.markdown("---")
-    st.subheader("📊 Grand Totals")
-    
-    # 1. Calculate Grand Total Status
-    total_subs_count = int(grand_totals['total_subs_count'])
-    stream_sub_goal = 20 # Define the goal here for clarity
-    is_goal_reached = total_subs_count >= stream_sub_goal
-    
-    if is_goal_reached:
-        total_subs_status = 'Stream Sub Goal Reached! 🎉'
-        status_color = '#FFD700' # Gold for Success
-        subs_needed_line = "Goal status: ACHIEVED!"
-    else:
-        subs_needed = stream_sub_goal - total_subs_count
-        total_subs_status = f'Stream Sub Goal In Progress...'
-        status_color = '#FFFFFF' # Default color
-        subs_needed_line = f'Goal: {stream_sub_goal} subs. Need <b>{subs_needed}</b> more to hit the goal!'
-
-    # 2. Compile the Grand Contribution String (RAW AMOUNTS with singular/plural)
-    grand_contribution_parts = []
-    
-    # Gifted Subs
-    if grand_totals['total_gifted_subs_count'] > 0:
-        count = grand_totals['total_gifted_subs_count']
-        word = "gifted sub" if count == 1 else "gifted subs"
-        grand_contribution_parts.append(f"{count} {word}")
-        
-    # Resubs
-    if grand_totals['total_resubs_count'] > 0:
-        count = grand_totals['total_resubs_count']
-        word = "resub" if count == 1 else "resubs"
-        grand_contribution_parts.append(f"{count} {word}")
-        
-    # Bits
-    if grand_totals['total_bits_amount'] > 0:
-        count = grand_totals['total_bits_amount']
-        word = "bit" if count == 1 else "bits"
-        grand_contribution_parts.append(f"{count:,} {word}") 
-        
-    # Donations (Changed wording to "in donos")
-    if grand_totals['total_donos'] > 0:
-        grand_contribution_parts.append(f"${grand_totals['total_donos']:.2f} in donos") 
-
-    grand_contribution_string = ", ".join(grand_contribution_parts).capitalize()
-    if not grand_contribution_string:
-        grand_contribution_string = "No contributions recorded."
-
-    # 3. Display in a single line (using flexbox for left/right alignment)
-    total_monetary = f"${grand_totals['total_monetary']:.2f}"
-    
-    st.markdown(f"""
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span>
-            <b>GRAND TOTAL</b> | Revenue: <b>{total_monetary}</b> | Subs: <b>{total_subs_count}</b> | <span style="color: {status_color};"><b>{total_subs_status}</b></span>
-        </span>
-        <span style="flex-shrink: 0; margin-left: 10px;">
-            <i style="color: gray;">{grand_contribution_string}</i>
-        </span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # 4. Display the Goal Status Line Separately
-    st.markdown(f'<p style="text-align: left; margin-top: -10px; margin-bottom: 5px;">{subs_needed_line}</p>', unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # Display detailed revenue breakdown in an expander
-    with st.expander("Detailed Revenue Breakdown"):
-        st.markdown(f"""
-        * Total Resubs (Value): ${grand_totals['total_resubs_value']:.2f}
-        * Total Gifted Subs (Value): ${grand_totals['total_gifted_subs_value']:.2f}
-        * Total Donations: ${grand_totals['total_donos']:.2f}
-        * Total Bits (Amount): {grand_totals['total_bits_amount']:,}
-        ---
-        * Tier 1 Subs Gifted: {grand_totals['total_tier1']}
-        * Tier 2 Subs Gifted: {grand_totals['total_tier2']}
-        * Tier 3 Subs Gifted: {grand_totals['total_tier3']}
-        """)
 else:
+    st.subheader("Leaderboard")
     st.info("No contributions yet. Beeg sadge :(")
 
-# --- Add User ---
+st.markdown("---") # Separator between Leaderboard/Info and Forms
+
+# --- Add User (MOVED OUTSIDE 'if users:' to always be available) ---
 st.subheader("Add User")
 
 if "current_new_user" not in st.session_state:
@@ -268,6 +192,7 @@ if "editing_user" not in st.session_state:
     st.session_state.editing_user = None
 
 # --- NEW EXCLUSION BLOCK ---
+# This block is for creating a new user, which should always be possible.
 if st.session_state.editing_user is None and st.session_state.current_new_user is None:
 
     # 1. Initialize the input value (must be done before the input is called)
@@ -310,6 +235,7 @@ if st.session_state.editing_user is None and st.session_state.current_new_user i
         st.warning(f"{new_user} already exists.")
 
 # --- Contribution Form Logic (if current_new_user is set) ---
+# This form only appears after a user name is entered above.
 if st.session_state.current_new_user:
     user = st.session_state.current_new_user
     st.info(f"Adding initial contribution for **{user}**")
@@ -356,7 +282,6 @@ if st.session_state.current_new_user:
 
         # --- Submission Logic ---
         if submitted:
-            # ... (Existing 'Add Contribution' logic here) ...
             choice = current_choice
             
             if choice == "Resub":
@@ -422,13 +347,17 @@ if st.session_state.current_new_user:
             st.session_state["add_user_input_value"] = "" # Reset the input value
             st.rerun()
 
-# --- Manage Existing Users (MODIFIED) ---
-st.subheader("Manage Existing Users")
+st.markdown("---") # Separator between Add User and Manage Users
 
-# Variable to hold selected user from the selectbox
-selected_user = None
-
+# --- Manage Existing Users (MODIFIED: Only show subheader if users exist) ---
 if users:
+    st.subheader("Manage Existing Users")
+
+    # Variable to hold selected user from the selectbox
+    selected_user = None
+
+    # This nested check is redundant now, but keeps the selectbox logic correct
+    # We proceed because the parent 'if users:' is true.
     user_list = [""] + list(users.keys())
     selected_user = st.selectbox(
         "Choose a user", 
@@ -455,146 +384,222 @@ if users:
                 st.session_state.pop("manage_user_select", None)
                 st.rerun()
 
-# --- Contribution Management Form ---
-if st.session_state.editing_user and st.session_state.editing_user in users:
-    user_to_edit = st.session_state.editing_user 
-    
-    st.info(f"Managing contributions for **{user_to_edit}**")
-
-    # 1. NEW: Operation Type (Add/Subtract)
-    operation_type = st.radio(
-        "Operation Type", 
-        ["Add", "Subtract"], 
-        key="edit_operation_type", 
-        horizontal=True
-    )
-    
-    # Get multiplier based on selection
-    multiplier = 1 if operation_type == "Add" else -1
-    
-    # Radio button for the contribution type (outside the form for dynamic rendering)
-    st.radio("Contribution Type", ["Resub", "Gifted", "Bits", "Dono"], key="edit_contrib_choice")
-
-    with st.form("edit_contrib_form"):
-        # Retrieve the choice from the state (guaranteed to be current)
-        current_choice = st.session_state.get("edit_contrib_choice", "Resub")
+    # --- Contribution Management Form ---
+    if st.session_state.editing_user and st.session_state.editing_user in users:
+        user_to_edit = st.session_state.editing_user 
         
-        # --- Define the container slot for dynamic inputs ---
-        input_container = st.container()
+        st.info(f"Managing contributions for **{user_to_edit}**")
 
-        # --- Draw Inputs inside the container ---
-        with input_container:
-            if current_choice == "Resub":
-                st.selectbox("Tier", [1, 2, 3], key="edit_resub_tier")
-            
-            elif current_choice == "Gifted":
-                st.number_input("Number of Gifted Subs", min_value=1, step=1, key="edit_gifted_amt")
-                st.selectbox("Gifted Tier", [1, 2, 3], key="edit_gifted_tier")
-            
-            elif current_choice == "Bits":
-                st.number_input("Number of Bits", min_value=1, step=1, key="edit_bits_amt")
-            
-            elif current_choice == "Dono":
-                st.number_input("Donation Amount ($)", min_value=0.01, step=0.01, format="%.2f", key="edit_dono_amt")
+        # 1. NEW: Operation Type (Add/Subtract)
+        operation_type = st.radio(
+            "Operation Type", 
+            ["Add", "Subtract"], 
+            key="edit_operation_type", 
+            horizontal=True
+        )
+        
+        # Get multiplier based on selection
+        multiplier = 1 if operation_type == "Add" else -1
+        
+        # Radio button for the contribution type (outside the form for dynamic rendering)
+        st.radio("Contribution Type", ["Resub", "Gifted", "Bits", "Dono"], key="edit_contrib_choice")
 
-        # --- Form Buttons ---
-        col_submit, col_cancel = st.columns(2)
-        with col_submit:
-            submitted = st.form_submit_button(f"{operation_type} Contribution", use_container_width=True, type="primary")
-        with col_cancel:
-            if st.form_submit_button("Cancel", use_container_width=True):
-                st.session_state.editing_user = None
+        with st.form("edit_contrib_form"):
+            # Retrieve the choice from the state (guaranteed to be current)
+            current_choice = st.session_state.get("edit_contrib_choice", "Resub")
+            
+            # --- Define the container slot for dynamic inputs ---
+            input_container = st.container()
+
+            # --- Draw Inputs inside the container ---
+            with input_container:
+                if current_choice == "Resub":
+                    st.selectbox("Tier", [1, 2, 3], key="edit_resub_tier")
+                
+                elif current_choice == "Gifted":
+                    st.number_input("Number of Gifted Subs", min_value=1, step=1, key="edit_gifted_amt")
+                    st.selectbox("Gifted Tier", [1, 2, 3], key="edit_gifted_tier")
+                
+                elif current_choice == "Bits":
+                    st.number_input("Number of Bits", min_value=1, step=1, key="edit_bits_amt")
+                
+                elif current_choice == "Dono":
+                    st.number_input("Donation Amount ($)", min_value=0.01, step=0.01, format="%.2f", key="edit_dono_amt")
+
+            # --- Form Buttons ---
+            col_submit, col_cancel = st.columns(2)
+            with col_submit:
+                submitted = st.form_submit_button(f"{operation_type} Contribution", use_container_width=True, type="primary")
+            with col_cancel:
+                if st.form_submit_button("Cancel", use_container_width=True):
+                    st.session_state.editing_user = None
+                    st.rerun()
+
+    # --- Submission Logic ---
+            if submitted:
+                choice = st.session_state.edit_contrib_choice
+                
+                # --- Dictionary to map tier to price ---
+                tier_prices = {1: tier1_price, 2: tier2_price, 3: tier3_price}
+                
+                # 💡 The multiplier is used here to ADD or SUBTRACT the value 
+                if choice == "Resub":
+                    tier = st.session_state.edit_resub_tier
+                    
+                    if multiplier == 1:
+                        # Logic for ADDING/CHANGING Resub Tier
+                        
+                        # 1. Get the price of the current (old) tier
+                        old_tier = users[user_to_edit]["resub_tier"]
+                        old_price = tier_prices.get(old_tier, 0.0) # 0.0 if user had no previous resub
+                        
+                        # 2. Get the price of the new tier
+                        new_price = tier_prices.get(tier, 0.0)
+                        
+                        # 3. Calculate the net change in monetary value
+                        net_change = new_price - old_price
+                        
+                        # 4. Apply the change to the total
+                        users[user_to_edit]["resub_total"] += net_change
+                        
+                        # 5. Update the user's resub tier status
+                        users[user_to_edit]["resub_tier"] = tier
+                        
+                        st.success(f"Resub Tier updated from Tier {old_tier} to **Tier {tier}** for {user_to_edit}")
+                    
+                    else: # Subtract logic (Removing Resub status entirely)
+                        old_tier = users[user_to_edit]["resub_tier"]
+                        
+                        if old_tier > 0:
+                            # Subtract the full cost of the current tier
+                            price_to_subtract = tier_prices.get(old_tier)
+                            users[user_to_edit]["resub_total"] -= price_to_subtract
+                            
+                            # Reset tier status
+                            users[user_to_edit]["resub_tier"] = 0
+                            st.success(f"Resub Tier {old_tier} status removed from {user_to_edit}")
+                        else:
+                            st.warning(f"{user_to_edit} currently has no active Resub status to remove.")
+
+
+                elif choice == "Gifted":
+                    gifted_amt = st.session_state.edit_gifted_amt
+                    gifted_tier = st.session_state.edit_gifted_tier
+                    
+                    amount_change = gifted_amt * multiplier
+                    total_change = amount_change * tier_prices.get(gifted_tier) # Use the dictionary here too!
+
+                    users[user_to_edit]["gifted_subs_total"] += total_change
+                    users[user_to_edit]["gifted_subs_count"] += amount_change
+                    
+                    if gifted_tier == 1: users[user_to_edit]["tier1"] += amount_change
+                    elif gifted_tier == 2: users[user_to_edit]["tier2"] += amount_change
+                    elif gifted_tier == 3: users[user_to_edit]["tier3"] += amount_change
+                    
+                    st.success(f"{operation_type}ed {gifted_amt} Tier {gifted_tier} gifted subs to {user_to_edit}")
+
+                elif choice == "Bits":
+                    bit_amt = st.session_state.edit_bits_amt
+                    
+                    users[user_to_edit]["bits_total"] += round(bit_amt * 0.01, 2) * multiplier
+                    users[user_to_edit]["num_bits"] += bit_amt * multiplier
+                    st.success(f"{operation_type}ed {bit_amt} bits to {user_to_edit}")
+
+                elif choice == "Dono":
+                    dono_amt = st.session_state.edit_dono_amt
+                    
+                    users[user_to_edit]["donos"] += round(dono_amt, 2) * multiplier
+                    st.success(f"{operation_type}ed ${dono_amt:.2f} donation to {user_to_edit}")
+
+                # --- Common Post-Submission Logic ---
+                # Recalculate monetary total before saving
+                data = users[user_to_edit]
+                data["monetary_total"] = round(
+                    data["resub_total"] + data["gifted_subs_total"] + data["bits_total"] + data["donos"], 
+                    2
+                )
+                
+                save_users(users)
+                st.session_state.editing_user = None # Close the form
+                st.session_state.pop("manage_user_select", None)
+                st.session_state.pop("edit_contrib_choice", None)
                 st.rerun()
 
-# --- Submission Logic ---
-        if submitted:
-            choice = st.session_state.edit_contrib_choice
-            
-            # --- Dictionary to map tier to price ---
-            tier_prices = {1: tier1_price, 2: tier2_price, 3: tier3_price}
-            
-            # 💡 The multiplier is used here to ADD or SUBTRACT the value 
-            if choice == "Resub":
-                tier = st.session_state.edit_resub_tier
-                
-                if multiplier == 1:
-                    # Logic for ADDING/CHANGING Resub Tier
-                    
-                    # 1. Get the price of the current (old) tier
-                    old_tier = users[user_to_edit]["resub_tier"]
-                    old_price = tier_prices.get(old_tier, 0.0) # 0.0 if user had no previous resub
-                    
-                    # 2. Get the price of the new tier
-                    new_price = tier_prices.get(tier, 0.0)
-                    
-                    # 3. Calculate the net change in monetary value
-                    net_change = new_price - old_price
-                    
-                    # 4. Apply the change to the total
-                    users[user_to_edit]["resub_total"] += net_change
-                    
-                    # 5. Update the user's resub tier status
-                    users[user_to_edit]["resub_tier"] = tier
-                    
-                    st.success(f"Resub Tier updated from Tier {old_tier} to **Tier {tier}** for {user_to_edit}")
-                
-                else: # Subtract logic (Removing Resub status entirely)
-                    old_tier = users[user_to_edit]["resub_tier"]
-                    
-                    if old_tier > 0:
-                        # Subtract the full cost of the current tier
-                        price_to_subtract = tier_prices.get(old_tier)
-                        users[user_to_edit]["resub_total"] -= price_to_subtract
-                        
-                        # Reset tier status
-                        users[user_to_edit]["resub_tier"] = 0
-                        st.success(f"Resub Tier {old_tier} status removed from {user_to_edit}")
-                    else:
-                        st.warning(f"{user_to_edit} currently has no active Resub status to remove.")
+# --- Display Grand Totals (Moved to be the last section inside 'if users:') ---
+if users:
+    st.markdown("---")
+    st.subheader("📊 Grand Totals")
+    
+    # 1. Calculate Grand Total Status
+    total_subs_count = int(grand_totals['total_subs_count'])
+    stream_sub_goal = 20 # Define the goal here for clarity
+    is_goal_reached = total_subs_count >= stream_sub_goal
+    
+    if is_goal_reached:
+        status_color = '#FFD700' # Gold for Success
+        subs_needed_line = f'Stream Sub Goal Reached! 🎉'
+    else:
+        subs_needed = stream_sub_goal - total_subs_count
+        status_color = '#FFFFFF' # Default color
+        subs_needed_line = f'Need <b>{subs_needed}</b> more!'
 
+    # 2. Compile the Grand Contribution String (RAW AMOUNTS with singular/plural)
+    grand_contribution_parts = []
+    
+    # Gifted Subs
+    if grand_totals['total_gifted_subs_count'] > 0:
+        count = grand_totals['total_gifted_subs_count']
+        word = "gifted sub" if count == 1 else "gifted subs"
+        grand_contribution_parts.append(f"{count} {word}")
+        
+    # Resubs
+    if grand_totals['total_resubs_count'] > 0:
+        count = grand_totals['total_resubs_count']
+        word = "resub" if count == 1 else "resubs"
+        grand_contribution_parts.append(f"{count} {word}")
+        
+    # Bits
+    if grand_totals['total_bits_amount'] > 0:
+        count = grand_totals['total_bits_amount']
+        word = "bit" if count == 1 else "bits"
+        grand_contribution_parts.append(f"{count:,} {word}") 
+        
+    # Donations (Changed wording to "in donos")
+    if grand_totals['total_donos'] > 0:
+        grand_contribution_parts.append(f"${grand_totals['total_donos']:.2f} in donos") 
 
-            elif choice == "Gifted":
-                gifted_amt = st.session_state.edit_gifted_amt
-                gifted_tier = st.session_state.edit_gifted_tier
-                
-                amount_change = gifted_amt * multiplier
-                total_change = amount_change * tier_prices.get(gifted_tier) # Use the dictionary here too!
+    grand_contribution_string = ", ".join(grand_contribution_parts).capitalize()
+    if not grand_contribution_string:
+        grand_contribution_string = "No contributions recorded."
 
-                users[user_to_edit]["gifted_subs_total"] += total_change
-                users[user_to_edit]["gifted_subs_count"] += amount_change
-                
-                if gifted_tier == 1: users[user_to_edit]["tier1"] += amount_change
-                elif gifted_tier == 2: users[user_to_edit]["tier2"] += amount_change
-                elif gifted_tier == 3: users[user_to_edit]["tier3"] += amount_change
-                
-                st.success(f"{operation_type}ed {gifted_amt} Tier {gifted_tier} gifted subs to {user_to_edit}")
+    # 3. Display in a single line (using flexbox for left/right alignment)
+    total_monetary = f"${grand_totals['total_monetary']:.2f}"
+    
+    st.markdown(f"""
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span>
+            Total value: <b>{total_monetary}</b> | Subs: <span style="color: {status_color};"><b>{total_subs_count}</b> /{stream_sub_goal} - {subs_needed_line}</span>
+        </span>
+        <span style="flex-shrink: 0; margin-left: 10px;">
+            <i style="color: gray;">{grand_contribution_string}</i>
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
 
-            elif choice == "Bits":
-                bit_amt = st.session_state.edit_bits_amt
-                
-                users[user_to_edit]["bits_total"] += round(bit_amt * 0.01, 2) * multiplier
-                users[user_to_edit]["num_bits"] += bit_amt * multiplier
-                st.success(f"{operation_type}ed {bit_amt} bits to {user_to_edit}")
+    st.markdown("---")
 
-            elif choice == "Dono":
-                dono_amt = st.session_state.edit_dono_amt
-                
-                users[user_to_edit]["donos"] += round(dono_amt, 2) * multiplier
-                st.success(f"{operation_type}ed ${dono_amt:.2f} donation to {user_to_edit}")
-
-            # --- Common Post-Submission Logic ---
-            # Recalculate monetary total before saving
-            data = users[user_to_edit]
-            data["monetary_total"] = round(
-                data["resub_total"] + data["gifted_subs_total"] + data["bits_total"] + data["donos"], 
-                2
-            )
-            
-            save_users(users)
-            st.session_state.editing_user = None # Close the form
-            st.session_state.pop("manage_user_select", None)
-            st.session_state.pop("edit_contrib_choice", None)
-            st.rerun()
+    # Display detailed revenue breakdown in an expander
+    with st.expander("Detailed Revenue Breakdown"):
+        st.markdown(f"""
+        * Total Resubs (Value): ${grand_totals['total_resubs_value']:.2f}
+        * Total Gifted Subs (Value): ${grand_totals['total_gifted_subs_value']:.2f}
+        * Total Donations: ${grand_totals['total_donos']:.2f}
+        * Total Bits (Amount): {grand_totals['total_bits_amount']:,}
+        ---
+        * Tier 1 Subs Gifted: {grand_totals['total_tier1']}
+        * Tier 2 Subs Gifted: {grand_totals['total_tier2']}
+        * Tier 3 Subs Gifted: {grand_totals['total_tier3']}
+        """)
 
 # --- Clear All Users ---
 st.subheader("Clear All Users")
