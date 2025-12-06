@@ -7,7 +7,6 @@ DATA_FILE = "users.json"
 def load_users():
     try:
         with open(DATA_FILE, "r") as f:
-            # Load users, ensuring the new 'song_played' key is added if missing (for old data)
             users = json.load(f)
             for user in users.values():
                 if "song_played" not in user:
@@ -20,7 +19,7 @@ def save_users(users):
     with open(DATA_FILE, "w") as f:
         json.dump(users, f, indent=4)
 
-# --- NEW HELPER FUNCTION (Revised to exclude Song Status) ---
+# --- HELPER FUNCTION ---
 def get_contribution_string(user_data):
     """Generates a detailed contribution string for a user."""
     contributions = []
@@ -71,6 +70,28 @@ def get_contribution_string(user_data):
 
     return ", ".join(contributions).capitalize()
 
+def set_background(image_file):
+    import base64
+    with open(image_file, "rb") as f:
+        data = base64.b64encode(f.read()).decode("utf-8")
+    
+    # Custom CSS for setting the background
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpeg;base64,{data}");
+            background-size: cover; /* Ensures the image covers the entire viewport */
+            background-attachment: fixed; /* Keeps the background fixed when scrolling */
+            background-position: center; /* Centers the image */
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+set_background('background.jpg')
+
 # --- Load users ---
 users = load_users()
 
@@ -88,7 +109,7 @@ grand_totals = {
     "total_bits_value": 0.0,
     "total_bits_amount": 0,
     "total_subs_count": 0,
-    # --- NEW KEYS FOR RAW COUNTS ---
+    # --- RAW COUNTS ---
     "total_gifted_subs_count": 0, # Total gifted subs (Tier 1, 2, 3)
     "total_resubs_count": 0,      # Total Tier 1, 2, or 3 resubs (not value, just the count of active subs)
     "total_tier1": 0,
@@ -97,13 +118,13 @@ grand_totals = {
 }
 
 # --- Streamlit UI ---
-st.title("🎵 Twitch Song Bump Calculator")
+st.title("🎵 PRB Song Bump Calculator🎵")
 
 if users:
-    # --- RESET GRAND TOTALS (IMPORTANT) ---
+    # --- RESET GRAND TOTALS ---
     grand_totals = {key: 0.0 if isinstance(grand_totals[key], float) else 0 for key in grand_totals}
 
-    # --- Recalculate totals and bump status before sorting (LEADERBOARD LOGIC) ---
+    # --- Recalculate totals and bump status before sorting ---
     for name, data in users.items():
         total = round(
             data["resub_total"] + data["gifted_subs_total"] + data["bits_total"] + data["donos"], 2
@@ -133,7 +154,7 @@ if users:
         grand_totals["total_bits_amount"] += data["num_bits"]
         grand_totals["total_subs_count"] += sub_count
         
-        # --- NEW: ACCUMULATE RAW COUNTS ---
+        # --- ACCUMULATE RAW COUNTS ---
         grand_totals["total_gifted_subs_count"] += data["gifted_subs_count"]
         # Only count the highest active tier for resubs (1 if T1/T2/T3 is active)
         if data["resub_tier"] > 0:
@@ -144,9 +165,8 @@ if users:
         
     sorted_users = sorted(users.items(), key=lambda item: item[1]['monetary_total'], reverse=True)
     
-if users: # <--- Start of the conditional block
-    # The sorted_users list is only created when 'users' is not empty (around line 148).
-    # Since we are inside 'if users:', we guarantee sorted_users exists.
+if users:
+    # The sorted_users list is only created when 'users' is not empty.
     
     # --- Leaderboard ---
     st.subheader("Leaderboard")
@@ -158,7 +178,7 @@ if users: # <--- Start of the conditional block
         
         # Shorten username for display if necessary
         display_name = name
-        if len(name) > 15:
+        if len(name) > 20:
             display_name = name[:12] + "..."
 
         # Use two columns: give more space to the stats column to prevent wrapping
@@ -195,9 +215,7 @@ if users: # <--- Start of the conditional block
 else:
     st.info("No contributions yet. Beeg Sadge :(")
 
-st.markdown("---") # Separator between Leaderboard/Info and Forms
-
-# --- Add User (MOVED OUTSIDE 'if users:' to always be available) ---
+# --- Add User ---
 st.subheader("Add User")
 
 if "current_new_user" not in st.session_state:
@@ -224,7 +242,6 @@ if st.session_state.editing_user is None and st.session_state.current_new_user i
     # --- Logic for creating the new user ---
     if new_user and new_user not in users:
         users[new_user] = {
-            # ... (Your user initialization dictionary content) ...
             "monetary_total": 0.0,
             "resub_tier": 0,
             "resub_total": 0.0,
@@ -237,7 +254,7 @@ if st.session_state.editing_user is None and st.session_state.current_new_user i
             "bits_total": 0.0,
             "donos": 0.0,
             "bumpable": False,
-            "song_played": False, # --- ADDED: Initialize new song status key ---
+            "song_played": False, 
         }
         save_users(users)
         st.session_state.current_new_user = new_user
@@ -286,7 +303,7 @@ if st.session_state.current_new_user:
             elif current_choice == "Dono":
                 st.number_input("Donation Amount ($)", min_value=0.01, step=0.01, format="%.2f", key="add_dono_amt")
 
-        # --- Form Buttons (NEW) ---
+        # --- Form Buttons ---
         col_submit, col_cancel = st.columns(2)
 
         with col_submit:
@@ -295,7 +312,6 @@ if st.session_state.current_new_user:
         with col_cancel:
             # We use a button with the same action as the form submission to trigger the logic
             canceled = st.form_submit_button("Cancel & Delete User", use_container_width=True)
-
 
         # --- Submission Logic ---
         if submitted:
@@ -350,7 +366,7 @@ if st.session_state.current_new_user:
             st.session_state.current_new_user = None
             st.session_state["add_user_input_value"] = ""
             
-            # NEW LINE: Temporarily set flag to suppress "already exists" warning
+            # Temporarily set flag to suppress "already exists" warning
             st.session_state["just_submitted_add"] = True 
             
             st.rerun()
@@ -392,14 +408,12 @@ if users:
     # --- Show Status and Buttons if a user is selected and not currently editing contributions ---
     if selected_user and st.session_state.editing_user is None: 
         user_data = users[selected_user] # Get the selected user's data
-
-        # REMOVED: Status display has been removed here.
         
         # 1. Status Management Buttons
         col_edit_status, col_edit_contrib, col_delete = st.columns([1, 1, 1])
 
         with col_edit_status:
-            # Button to open the Song Status editor (UPDATED TEXT)
+            # Button to open the Song Status editor
             if st.button("**Edit Song Played Status**", key="change_song_status_btn", use_container_width=True):
                 st.session_state.editing_song_status = selected_user
                 st.rerun() 
@@ -588,7 +602,7 @@ if users:
                 st.session_state.pop("edit_contrib_choice", None)
                 st.rerun()
 
-# --- Display Grand Totals (Moved to be the last section inside 'if users:') ---
+# --- Display Grand Totals ---
 if users:
     st.markdown("---")
     st.subheader("📊 Grand Totals")
@@ -627,7 +641,7 @@ if users:
         word = "bit" if count == 1 else "bits"
         grand_contribution_parts.append(f"{count:,} {word}") 
         
-    # Donations (Changed wording to "in donos")
+    # Donations
     if grand_totals['total_donos'] > 0:
         grand_contribution_parts.append(f"${grand_totals['total_donos']:.2f} in donos") 
 
@@ -696,3 +710,20 @@ with st.expander("View Contribution Tiers and Bump Rules"):
     * **Gifted Tier 2** subs total **1** or more.
     * **Gifted Tier 3** subs total **1** or more.
     """)
+
+st.markdown("---")
+
+st.markdown(
+    """
+    <div style="text-align: center; font-size: small; color: gray;">
+        Made by Mr. Smidge The Pidge 2025
+        <br>
+        <a href="https://streamelements.com/mrsmidgethepidge/tip" target="_blank">
+            Feed them 'crumbs'
+        </a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# -----------------------------------------------------------
