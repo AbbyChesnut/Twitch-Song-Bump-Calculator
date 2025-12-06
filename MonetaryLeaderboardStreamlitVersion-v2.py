@@ -118,7 +118,20 @@ grand_totals = {
 }
 
 # --- Streamlit UI ---
-st.title("🎵 PRB Song Bump Calculator🎵")
+# Place this CSS block near the top of your script
+st.markdown(
+    """
+    <style>
+    .centered-title {
+        text-align: center;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Use st.markdown() with a custom class to display the title
+st.markdown('<h1 class="centered-title">🎵 PRB Song Bump Calculator🎵</h1>', unsafe_allow_html=True)
 
 if users:
     # --- RESET GRAND TOTALS ---
