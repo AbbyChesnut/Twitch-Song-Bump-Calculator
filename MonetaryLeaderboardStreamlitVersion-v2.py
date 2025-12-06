@@ -7,7 +7,12 @@ DATA_FILE = "users.json"
 def load_users():
     try:
         with open(DATA_FILE, "r") as f:
-            return json.load(f)
+            # Load users, ensuring the new 'song_played' key is added if missing (for old data)
+            users = json.load(f)
+            for user in users.values():
+                if "song_played" not in user:
+                    user["song_played"] = False
+            return users
     except FileNotFoundError:
         return {}
 
@@ -15,8 +20,7 @@ def save_users(users):
     with open(DATA_FILE, "w") as f:
         json.dump(users, f, indent=4)
 
-# --- NEW HELPER FUNCTION ---
-# This function replicates the logic from your original print_users_by_total
+# --- NEW HELPER FUNCTION (Revised to exclude Song Status) ---
 def get_contribution_string(user_data):
     """Generates a detailed contribution string for a user."""
     contributions = []
@@ -97,7 +101,6 @@ st.title("🎵 Twitch Song Bump Calculator")
 
 if users:
     # --- RESET GRAND TOTALS (IMPORTANT) ---
-    # This must be done inside the 'if users' block before recalculating
     grand_totals = {key: 0.0 if isinstance(grand_totals[key], float) else 0 for key in grand_totals}
 
     # --- Recalculate totals and bump status before sorting (LEADERBOARD LOGIC) ---
@@ -141,12 +144,17 @@ if users:
         
     sorted_users = sorted(users.items(), key=lambda item: item[1]['monetary_total'], reverse=True)
     
+if users: # <--- Start of the conditional block
+    # The sorted_users list is only created when 'users' is not empty (around line 148).
+    # Since we are inside 'if users:', we guarantee sorted_users exists.
+    
     # --- Leaderboard ---
     st.subheader("Leaderboard")
-    
+
     # --- Display each user in a single row using flexbox ---
     for name, data in sorted_users:
-        contribution_string = get_contribution_string(data)
+        # Calls the function that now returns ONLY the contribution list
+        contribution_string = get_contribution_string(data) 
         
         # Shorten username for display if necessary
         display_name = name
@@ -160,11 +168,20 @@ if users:
             # The HTML entity &nbsp; is used to ensure the space between the word and emoji doesn't allow a line break.
             bump_status_text = 'Bumpable&nbsp;🟢' if data['bumpable'] else 'Not&nbsp;Bumpable&nbsp;🔴'
             
-            # Rearranged the output to include dividing pipes.
+            # 1. Primary Name, Total, and Bump Status display
             st.markdown(
                 f"**{display_name}** | Total: **${data['monetary_total']:.2f}** | {bump_status_text}",
                 unsafe_allow_html=True
             )
+
+            # 2. Display Song Played Status ONLY if bumpable
+            if data['bumpable']:
+                is_song_played = data.get("song_played", False)
+                status_text = "Song Played Status: ✅" if is_song_played else "Song Played Status: ❌"
+                
+                # Display this status on a new line underneath the primary stats
+                st.markdown(f'<div style="margin-top: -10px; font-size: small;">{status_text}</div>', unsafe_allow_html=True)
+
 
         with col_contrib:
             # Use HTML to enforce both right-alignment AND italics (using the <i> tag)
@@ -176,8 +193,7 @@ if users:
         st.divider() # Visually separate each user
 
 else:
-    st.subheader("Leaderboard")
-    st.info("No contributions yet. Beeg sadge :(")
+    st.info("No contributions yet. Beeg Sadge :(")
 
 st.markdown("---") # Separator between Leaderboard/Info and Forms
 
@@ -221,6 +237,7 @@ if st.session_state.editing_user is None and st.session_state.current_new_user i
             "bits_total": 0.0,
             "donos": 0.0,
             "bumpable": False,
+            "song_played": False, # --- ADDED: Initialize new song status key ---
         }
         save_users(users)
         st.session_state.current_new_user = new_user
@@ -349,48 +366,112 @@ if st.session_state.current_new_user:
 
 st.markdown("---") # Separator between Add User and Manage Users
 
-# --- Manage Existing Users (MODIFIED: Only show subheader if users exist) ---
+# --- Initialize Song Status Edit State ---
+if "editing_song_status" not in st.session_state:
+    st.session_state.editing_song_status = None
+
+# --- Manage Existing Users (Only show if users exist) ---
 if users:
     st.subheader("Manage Existing Users")
 
     # Variable to hold selected user from the selectbox
     selected_user = None
 
-    # This nested check is redundant now, but keeps the selectbox logic correct
-    # We proceed because the parent 'if users:' is true.
     user_list = [""] + list(users.keys())
+    # Reset the selection to a valid state if needed
+    default_index = user_list.index(st.session_state.get("manage_user_select", "")) if st.session_state.get("manage_user_select") in user_list else 0
+    
     selected_user = st.selectbox(
         "Choose a user", 
         user_list, 
         key="manage_user_select", 
-        format_func=lambda x: "Select a user" if x == "" else x
+        format_func=lambda x: "Select a user" if x == "" else x,
+        index=default_index
     )
     
-    # --- Show buttons if a user is selected and not currently being edited ---
+    # --- Show Status and Buttons if a user is selected and not currently editing contributions ---
     if selected_user and st.session_state.editing_user is None: 
-        col1, col2 = st.columns([1, 1]) 
+        user_data = users[selected_user] # Get the selected user's data
 
-        with col1:
-            if st.button("Manage Contributions", key="edit_user_btn", use_container_width=True):
+        # REMOVED: Status display has been removed here.
+        
+        # 1. Status Management Buttons
+        col_edit_status, col_edit_contrib, col_delete = st.columns([1, 1, 1])
+
+        with col_edit_status:
+            # Button to open the Song Status editor (UPDATED TEXT)
+            if st.button("**Edit Song Played Status**", key="change_song_status_btn", use_container_width=True):
+                st.session_state.editing_song_status = selected_user
+                st.rerun() 
+
+        with col_edit_contrib:
+            if st.button("Edit Contributions", key="edit_user_btn", use_container_width=True):
                 st.session_state.editing_user = selected_user
                 st.rerun() 
 
-        with col2:
+        with col_delete:
             if st.button("Delete User", key="delete_user_btn", use_container_width=True, type="primary"):
                 del users[selected_user]
                 save_users(users)
                 st.warning(f"{selected_user} has been deleted.")
                 st.session_state.editing_user = None
-                st.session_state.pop("manage_user_select", None)
+                st.session_state.editing_song_status = None
+                st.session_state["manage_user_select"] = "" # Reset selection
                 st.rerun()
+        
+        st.markdown("---") # Separator below buttons
 
+
+    # --- DEDICATED SONG STATUS FORM (REVEALED BY BUTTON) ---
+    if st.session_state.editing_song_status:
+        user_to_edit_status = st.session_state.editing_song_status
+        user_data = users[user_to_edit_status]
+        
+        st.info(f"Setting Song Played status for **{user_to_edit_status}**")
+        
+        with st.form("edit_song_status_form"):
+            is_played = user_data.get("song_played", False)
+            current_status = "Yes" if is_played else "No"
+            initial_index = ["Yes", "No"].index(current_status)
+
+            new_status = st.radio(
+                "Song Played:", 
+                ["Yes", "No"], 
+                index=initial_index, 
+                key="new_song_status_radio",
+                horizontal=True
+            )
+            
+            col_save, col_cancel = st.columns(2)
+            
+            with col_save:
+                submitted = st.form_submit_button("Save Song Status", use_container_width=True, type="primary")
+                
+            with col_cancel:
+                if st.form_submit_button("Cancel", use_container_width=True):
+                    st.session_state.editing_song_status = None
+                    st.rerun()
+
+            if submitted:
+                new_is_played = (new_status == "Yes")
+                
+                if new_is_played != is_played:
+                    users[user_to_edit_status]["song_played"] = new_is_played
+                    save_users(users)
+                    st.success(f"Song Played status updated to **{new_status}** for {user_to_edit_status}.")
+                else:
+                    st.info("Song status was not changed.")
+                    
+                st.session_state.editing_song_status = None
+                st.rerun()
+                
     # --- Contribution Management Form ---
     if st.session_state.editing_user and st.session_state.editing_user in users:
         user_to_edit = st.session_state.editing_user 
         
-        st.info(f"Managing contributions for **{user_to_edit}**")
-
-        # 1. NEW: Operation Type (Add/Subtract)
+        st.info(f"Managing monetary contributions for **{user_to_edit}**")
+        
+        # 1. Operation Type (Add/Subtract)
         operation_type = st.radio(
             "Operation Type", 
             ["Add", "Subtract"], 
@@ -437,45 +518,29 @@ if users:
 
     # --- Submission Logic ---
             if submitted:
+                # --- Assuming 'tier1_price', 'tier2_price', 'tier3_price' are defined earlier in your script ---
                 choice = st.session_state.edit_contrib_choice
                 
-                # --- Dictionary to map tier to price ---
                 tier_prices = {1: tier1_price, 2: tier2_price, 3: tier3_price}
                 
-                # 💡 The multiplier is used here to ADD or SUBTRACT the value 
                 if choice == "Resub":
                     tier = st.session_state.edit_resub_tier
                     
                     if multiplier == 1:
-                        # Logic for ADDING/CHANGING Resub Tier
-                        
-                        # 1. Get the price of the current (old) tier
                         old_tier = users[user_to_edit]["resub_tier"]
-                        old_price = tier_prices.get(old_tier, 0.0) # 0.0 if user had no previous resub
-                        
-                        # 2. Get the price of the new tier
+                        old_price = tier_prices.get(old_tier, 0.0) 
                         new_price = tier_prices.get(tier, 0.0)
-                        
-                        # 3. Calculate the net change in monetary value
                         net_change = new_price - old_price
-                        
-                        # 4. Apply the change to the total
                         users[user_to_edit]["resub_total"] += net_change
-                        
-                        # 5. Update the user's resub tier status
                         users[user_to_edit]["resub_tier"] = tier
-                        
                         st.success(f"Resub Tier updated from Tier {old_tier} to **Tier {tier}** for {user_to_edit}")
                     
-                    else: # Subtract logic (Removing Resub status entirely)
+                    else: 
                         old_tier = users[user_to_edit]["resub_tier"]
                         
                         if old_tier > 0:
-                            # Subtract the full cost of the current tier
                             price_to_subtract = tier_prices.get(old_tier)
                             users[user_to_edit]["resub_total"] -= price_to_subtract
-                            
-                            # Reset tier status
                             users[user_to_edit]["resub_tier"] = 0
                             st.success(f"Resub Tier {old_tier} status removed from {user_to_edit}")
                         else:
@@ -485,9 +550,8 @@ if users:
                 elif choice == "Gifted":
                     gifted_amt = st.session_state.edit_gifted_amt
                     gifted_tier = st.session_state.edit_gifted_tier
-                    
                     amount_change = gifted_amt * multiplier
-                    total_change = amount_change * tier_prices.get(gifted_tier) # Use the dictionary here too!
+                    total_change = amount_change * tier_prices.get(gifted_tier) 
 
                     users[user_to_edit]["gifted_subs_total"] += total_change
                     users[user_to_edit]["gifted_subs_count"] += amount_change
@@ -512,7 +576,6 @@ if users:
                     st.success(f"{operation_type}ed ${dono_amt:.2f} donation to {user_to_edit}")
 
                 # --- Common Post-Submission Logic ---
-                # Recalculate monetary total before saving
                 data = users[user_to_edit]
                 data["monetary_total"] = round(
                     data["resub_total"] + data["gifted_subs_total"] + data["bits_total"] + data["donos"], 
@@ -520,7 +583,7 @@ if users:
                 )
                 
                 save_users(users)
-                st.session_state.editing_user = None # Close the form
+                st.session_state.editing_user = None 
                 st.session_state.pop("manage_user_select", None)
                 st.session_state.pop("edit_contrib_choice", None)
                 st.rerun()
